@@ -15,66 +15,81 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false } // Required for Render's external connection
 });
 
-// Create tables for different categories
-const initializeTables = async () => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS jobs (
-        id SERIAL PRIMARY KEY,
-        name TEXT,
-        pinkCard TEXT,
-        speakThai TEXT,
-        paymentMethod TEXT,
-        dailySalary TEXT,
-        monthlySalary TEXT,
-        accommodation TEXT,
-        facebookLink TEXT,
-        telegramLink TEXT
-      );
+// Create tables for different categories with retry logic
+const initializeTables = async (retries = 3, delay = 2000) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS jobs (
+          id SERIAL PRIMARY KEY,
+          name TEXT,
+          pinkCard TEXT,
+          speakThai TEXT,
+          paymentMethod TEXT,
+          dailySalary TEXT,
+          monthlySalary TEXT,
+          accommodation TEXT,
+          facebookLink TEXT,
+          telegramLink TEXT
+        );
 
-      CREATE TABLE IF NOT EXISTS hotels (
-        id SERIAL PRIMARY KEY,
-        name TEXT,
-        location TEXT,
-        pricePerNight TEXT,
-        amenities TEXT,
-        facebookLink TEXT,
-        telegramLink TEXT
-      );
+        CREATE TABLE IF NOT EXISTS hotels (
+          id SERIAL PRIMARY KEY,
+          name TEXT,
+          location TEXT,
+          pricePerNight TEXT,
+          amenities TEXT,
+          facebookLink TEXT,
+          telegramLink TEXT
+        );
 
-      CREATE TABLE IF NOT EXISTS restaurants (
-        id SERIAL PRIMARY KEY,
-        name TEXT,
-        cuisineType TEXT,
-        location TEXT,
-        priceRange TEXT,
-        facebookLink TEXT,
-        telegramLink TEXT
-      );
+        CREATE TABLE IF NOT EXISTS restaurants (
+          id SERIAL PRIMARY KEY,
+          name TEXT,
+          cuisineType TEXT,
+          location TEXT,
+          priceRange TEXT,
+          facebookLink TEXT,
+          telegramLink TEXT
+        );
 
-      CREATE TABLE IF NOT EXISTS travel (
-        id SERIAL PRIMARY KEY,
-        destination TEXT,
-        travelType TEXT,
-        duration TEXT,
-        price TEXT,
-        facebookLink TEXT,
-        telegramLink TEXT
-      );
+        CREATE TABLE IF NOT EXISTS travel (
+          id SERIAL PRIMARY KEY,
+          destination TEXT,
+          travelType TEXT,
+          duration TEXT,
+          price TEXT,
+          facebookLink TEXT,
+          telegramLink TEXT
+        );
 
-      CREATE TABLE IF NOT EXISTS identity (
-        id SERIAL PRIMARY KEY,
-        name TEXT,
-        documentType TEXT,
-        location TEXT,
-        price TEXT,
-        facebookLink TEXT,
-        telegramLink TEXT
-      );
-    `);
-    console.log('Tables created successfully');
-  } catch (err) {
-    console.error('Error creating tables:', err);
+        CREATE TABLE IF NOT EXISTS identity (
+          id SERIAL PRIMARY KEY,
+          name TEXT,
+          documentType TEXT,
+          location TEXT,
+          price TEXT,
+          facebookLink TEXT,
+          telegramLink TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS condos (
+          id SERIAL PRIMARY KEY,
+          name TEXT,
+          location TEXT,
+          pricePerMonth TEXT,
+          amenities TEXT,
+          facebookLink TEXT,
+          telegramLink TEXT
+        );
+      `);
+      console.log('Tables created successfully');
+      break; // Exit loop on success
+    } catch (err) {
+      console.error(`Attempt ${attempt} failed:`, err);
+      if (attempt === retries) throw err; // Throw error if all retries fail
+      await new Promise(resolve => setTimeout(resolve, delay)); // Wait before retrying
+    }
   }
 };
 
@@ -222,6 +237,35 @@ app.post('/api/identity', async (req, res) => {
     res.json({ id: result.rows[0].id });
   } catch (err) {
     console.error('Error posting identity:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Condo Endpoints
+app.get('/api/condos', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM condos');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching condos:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.post('/api/condos', async (req, res) => {
+  const { name, location, pricePerMonth, amenities, facebookLink, telegramLink } = req.body;
+  try {
+    const result = await pool.query(
+      `
+      INSERT INTO condos (name, location, pricePerMonth, amenities, facebookLink, telegramLink)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id
+      `,
+      [name, location, pricePerMonth, amenities, facebookLink, telegramLink]
+    );
+    res.json({ id: result.rows[0].id });
+  } catch (err) {
+    console.error('Error posting condo:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

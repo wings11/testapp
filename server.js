@@ -11,7 +11,7 @@ app.use(express.json());
 
 // Initialize PostgreSQL connection pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://tmapp_iaoy_user:E5w5fOE55VGsqGvsXOcAi7QETNeQmnCf@dpg-d0dpvcqli9vc73a2rjjg-a.singapore-postgres.render.com/tmapp_iaoy',
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false } // Required for Render's external connection
 });
 

@@ -10,9 +10,13 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize PostgreSQL connection pool
+if (!process.env.DATABASE_URL) {
+  console.error('Error: DATABASE_URL environment variable is not set');
+  process.exit(1);
+}
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Required for Render's external connection
+  ssl: { rejectUnauthorized: false }
 });
 
 // Create tables for different categories with retry logic
@@ -72,16 +76,6 @@ const initializeTables = async (retries = 3, delay = 2000) => {
           facebookLink TEXT,
           telegramLink TEXT
         );
-
-        CREATE TABLE IF NOT EXISTS condos (
-          id SERIAL PRIMARY KEY,
-          name TEXT,
-          location TEXT,
-          pricePerMonth TEXT,
-          amenities TEXT,
-          facebookLink TEXT,
-          telegramLink TEXT
-        );
       `);
       console.log('Tables created successfully');
       break; // Exit loop on success
@@ -125,6 +119,21 @@ app.post('/api/jobs', async (req, res) => {
   }
 });
 
+app.delete('/api/jobs/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM jobs WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Job not found' });
+    } else {
+      res.json({ message: 'Job deleted successfully' });
+    }
+  } catch (err) {
+    console.error('Error deleting job:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // Hotels Endpoints
 app.get('/api/hotels', async (req, res) => {
   try {
@@ -150,6 +159,21 @@ app.post('/api/hotels', async (req, res) => {
     res.json({ id: result.rows[0].id });
   } catch (err) {
     console.error('Error posting hotel:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.delete('/api/hotels/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM hotels WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Hotel not found' });
+    } else {
+      res.json({ message: 'Hotel deleted successfully' });
+    }
+  } catch (err) {
+    console.error('Error deleting hotel:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -183,6 +207,21 @@ app.post('/api/restaurants', async (req, res) => {
   }
 });
 
+app.delete('/api/restaurants/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM restaurants WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Restaurant not found' });
+    } else {
+      res.json({ message: 'Restaurant deleted successfully' });
+    }
+  } catch (err) {
+    console.error('Error deleting restaurant:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // Travel Endpoints
 app.get('/api/travel', async (req, res) => {
   try {
@@ -208,6 +247,21 @@ app.post('/api/travel', async (req, res) => {
     res.json({ id: result.rows[0].id });
   } catch (err) {
     console.error('Error posting travel:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.delete('/api/travel/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM travel WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Travel not found' });
+    } else {
+      res.json({ message: 'Travel deleted successfully' });
+    }
+  } catch (err) {
+    console.error('Error deleting travel:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -241,31 +295,17 @@ app.post('/api/identity', async (req, res) => {
   }
 });
 
-// Condo Endpoints
-app.get('/api/condos', async (req, res) => {
+app.delete('/api/identity/:id', async (req, res) => {
+  const { id } = req.params;
   try {
-    const result = await pool.query('SELECT * FROM condos');
-    res.json(result.rows);
+    const result = await pool.query('DELETE FROM identity WHERE id = $1 RETURNING *', [id]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Identity not found' });
+    } else {
+      res.json({ message: 'Identity deleted successfully' });
+    }
   } catch (err) {
-    console.error('Error fetching condos:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-app.post('/api/condos', async (req, res) => {
-  const { name, location, pricePerMonth, amenities, facebookLink, telegramLink } = req.body;
-  try {
-    const result = await pool.query(
-      `
-      INSERT INTO condos (name, location, pricePerMonth, amenities, facebookLink, telegramLink)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id
-      `,
-      [name, location, pricePerMonth, amenities, facebookLink, telegramLink]
-    );
-    res.json({ id: result.rows[0].id });
-  } catch (err) {
-    console.error('Error posting condo:', err);
+    console.error('Error deleting identity:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
